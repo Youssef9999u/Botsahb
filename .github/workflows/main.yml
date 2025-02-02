@@ -1,4 +1,4 @@
-name: Run Script for 24 Hours
+sdddname: Run Script for 24 Hours
 
 on:
   push:
